@@ -758,12 +758,15 @@ class Replay(Loadable):
         if replay_data[0].time_delta == 0:
             replay_data = replay_data[1:]
 
+        # If we get to here and there is no more replay data, the replay only
+        # contained the 'invalid zero time frame' as above. Since there is no
+        # meaningful data beyond this point we'll just throw an error.
+        if replay_data == []:
+            raise ValueError("This replay's replay data contained no valid frames. "
+                "This should not happen and is indicative of a misbehaved replay.")
+
         # t, x, y, k
         data = [[], [], [], []]
-        ## TODO try to use a peekable iterator to use an iter for above as well
-        # use an iter an an optimization so we don't recreate the list when
-        # taking (and removing) the first element
-        replay_data = iter(replay_data)
         # The following comments in this method are guesswork, but seems to
         # accurately describe replays. This references the "first" frame
         # assuming that we have already removed the truly first zero time
@@ -779,7 +782,7 @@ class Replay(Loadable):
         # this would make ``highest_running_t`` large and cause all replay data
         # before the skip to be ignored. To solve this, we initialize
         # ``running_t`` to the first frame's time.
-        running_t = next(replay_data).time_delta
+        running_t = replay_data[0].time_delta
         # We consider negative time frames in the middle of replays to be
         # valid, with a caveat. Their negative time is counted toward
         # ``running_t`` (that is, decreases ``running_t``), but any frames
@@ -803,7 +806,9 @@ class Replay(Loadable):
         # frame.
         last_positive_frame_cum_time = None
         previous_frame = None
-        for e in replay_data:
+        ## TODO try to use a peekable iterator so we can do above list slicing
+        ## without recreating the list (eg. when we remove the first frame)
+        for e in iter(replay_data):
             # check if we were in a negative section of the play at the
             # previous frame (f0) before applying the current frame (f1), so we
             # can apply special logic if f1 is the frame that gets us out of
